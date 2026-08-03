@@ -60,7 +60,7 @@ Replaces traditional solvers with Deep Learning architectures, training neural n
 ---
 
 ### 🛠️ Technologies & Skills
-*   **Mathematical Modeling & Numerical Methods:** Linear Algebra, Calculus, PDEs, ODE Solvers (RK4), algorithm cost management ($O(N^3)$ vs $O(N)$).
+*   **Mathematical Modeling & Numerical Methods:** Linear Algebra, Calculus, PDEs, ODE Solvers (RK4), algorithm cost management ($O(N^3)$ vs O(N)).
 *   **Python Stack:** NumPy (Broadcasting/Vectorization), SciPy (Sparse Matrices/Solvers), Pandas.
 *   **FEM & Visualization:** FEniCS, UFL, ParaView, Matplotlib, Meshio.
 *   **Deep Learning & SciML:** PyTorch, CUDA, Autograd, PINN Architectures.
