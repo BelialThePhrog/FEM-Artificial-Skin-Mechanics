@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Full Stress Deviator Tensor Visualizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 5px; color: #63b3ed; text-align: center; }
+        p.subtitle { color: #a0aec0; margin-bottom: 20px; text-align: center; }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1250px;
+            width: 100%;
+        }
+        
+        .card {
+            background: #2d3748;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            flex: 1;
+            min-width: 360px;
+        }
+        
+        .controls label {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+        
+        input[type=range] {
+            width: 100%;
+            margin-top: 2px;
+        }
+        
+        .matrix-box {
+            background-color: #1a202c;
+            border-left: 4px solid #4299e1;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        #webgl-container {
+            width: 100%;
+            height: 520px;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #0f172a;
+            cursor: grab;
+        }
+
+        .legend {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #a0aec0;
+            text-align: center;
+        }
+
+        .section-title {
+            font-size: 0.95em;
+            color: #9f7aea;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #4a5568;
+            padding-bottom: 2px;
+        }
+    </style>
+    <!-- Three.js Library for 3D Graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <h1>3D Full Stress Deviator Tensor Visualizer</h1>
+    <p class="subtitle">Visualization of all 6 tensor components (3 normal stresses + 3 shear stresses)</p>
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="card">
+            <h3>1. Full 3D Tensor Components $\boldsymbol{\sigma}$ [MPa]</h3>
+            
+            <div class="section-title">Normal Stresses (Diagonal)</div>
+            <div class="controls">
+                <label>$\sigma_{xx}$ (X Tension): <span id="val_sxx">12</span> MPa</label>
+                <input type="range" id="sxx" min="-20" max="20" value="12" step="1">
+                
+                <label>$\sigma_{yy}$ (Y Tension): <span id="val_syy">6</span> MPa</label>
+                <input type="range" id="syy" min="-20" max="20" value="6" step="1">
+                
+                <label>$\sigma_{zz}$ (Z Thickness): <span id="val_szz">3</span> MPa</label>
+                <input type="range" id="szz" min="-20" max="20" value="3" step="1">
+            </div>
+
+            <div class="section-title">Shear Stresses (Off-Diagonal)</div>
+            <div class="controls">
+                <label>Shear $\sigma_{xy}$ (XY Plane): <span id="val_sxy">4</span> MPa</label>
+                <input type="range" id="sxy" min="-10" max="10" value="4" step="0.5">
+
+                <label>Shear $\sigma_{xz}$ (XZ Plane): <span id="val_sxz">2</span> MPa</label>
+                <input type="range" id="sxz" min="-10" max="10" value="2" step="0.5">
+
+                <label>Shear $\sigma_{yz}$ (YZ Plane): <span id="val_syz">3</span> MPa</label>
+                <input type="range" id="syz" min="-10" max="10" value="3" step="0.5">
+            </div>
+
+            <hr style="margin-top: 15px; border: 0; border-top: 1px solid #4a5568;">
+
+            <h3>2. Tensor Decomposition Results</h3>
+            
+            <div class="matrix-box">
+                <strong>Mean Pressure (p):</strong> <span id="val_p">0</span> MPa<br>
+                <small><i>$p = \frac{\sigma_{xx} + \sigma_{yy} + \sigma_{zz}}{3}$</i></small>
+            </div>
+
+            <div class="matrix-box" style="border-left-color: #f56565;">
+                <strong>Full 3D Deviator ($\mathbf{s} = \boldsymbol{\sigma} - p\mathbf{I}$):</strong><br>
+                [ <span id="s_xx">0</span>,  <span id="s_xy">0</span>,  <span id="s_xz">0</span> ]<br>
+                [ <span id="s_yx">0</span>,  <span id="s_yy">0</span>,  <span id="s_yz">0</span> ]<br>
+                [ <span id="s_zx">0</span>,  <span id="s_zy">0</span>,  <span id="s_zz">0</span> ]<br>
+                <hr style="border:0; border-top: 1px dashed #4a5568; margin: 5px 0;">
+                <b>Trace $\text{tr}(\mathbf{s}) = s_{xx} + s_{yy} + s_{zz} = $ <span id="s_tr">0</span></b><br>
+                <small><i>(Always equals 0! Preserves volume)</i></small>
+            </div>
+        </div>
+
+        <!-- 3D Graphics Panel -->
+        <div class="card">
+            <h3>3. Deformed 3D Cube (WebGL)</h3>
+            <div id="webgl-container"></div>
+            <div class="legend">
+                <span style="color: #a0aec0;">--- White wireframe: Initial shape</span> | 
+                <span style="color: #f56565; font-weight: bold;">■ Red cube: Deviatoric Deformation</span><br>
+                <i>(Click and drag to rotate the 3D view in any plane)</i>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. THREE.JS SETUP ---
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(2.8, 2.2, 3.8);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        // Coordinate axes (X-Red, Y-Green, Z-Blue)
+        const axesHelper = new THREE.AxesHelper(1.5);
+        scene.add(axesHelper);
+
+        // Reference wireframe (Original cube)
+        const wireGeo = new THREE.BoxGeometry(1, 1, 1);
+        const wireMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 });
+        const wireframe = new THREE.LineSegments(new THREE.WireframeGeometry(wireGeo), wireMat);
+        scene.add(wireframe);
+
+        // Deformed 3D cube
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1, 12, 12, 12);
+        const boxMat = new THREE.MeshPhongMaterial({ 
+            color: 0xf56565, 
+            transparent: true, 
+            opacity: 0.75,
+            side: THREE.DoubleSide,
+            wireframe: false
+        });
+        const deformedMesh = new THREE.Mesh(boxGeo, boxMat);
+        scene.add(deformedMesh);
+
+        const originalPositions = boxGeo.attributes.position.clone();
+
+        // --- 2. INPUTS & UPDATE ---
+        const sxxInput = document.getElementById('sxx');
+        const syyInput = document.getElementById('syy');
+        const szzInput = document.getElementById('szz');
+        const sxyInput = document.getElementById('sxy');
+        const sxzInput = document.getElementById('sxz');
+        const syzInput = document.getElementById('syz');
+
+        function update() {
+            const sxx = parseFloat(sxxInput.value);
+            const syy = parseFloat(syyInput.value);
+            const szz = parseFloat(szzInput.value);
+            const sxy = parseFloat(sxyInput.value);
+            const sxz = parseFloat(sxzInput.value);
+            const syz = parseFloat(syzInput.value);
+
+            // Update labels
+            document.getElementById('val_sxx').innerText = sxx;
+            document.getElementById('val_syy').innerText = syy;
+            document.getElementById('val_szz').innerText = szz;
+            document.getElementById('val_sxy').innerText = sxy;
+            document.getElementById('val_sxz').innerText = sxz;
+            document.getElementById('val_syz').innerText = syz;
+
+            // 1. 3D Hydrostatic pressure
+            const p = (sxx + syy + szz) / 3.0;
+            document.getElementById('val_p').innerText = p.toFixed(2);
+
+            // 2. 3D Deviator: s = sigma - p*I
+            const s_xx = sxx - p;
+            const s_yy = syy - p;
+            const s_zz = szz - p;
+            const s_xy = sxy;
+            const s_xz = sxz;
+            const s_yz = syz;
+
+            document.getElementById('s_xx').innerText = s_xx.toFixed(2);
+            document.getElementById('s_yy').innerText = s_yy.toFixed(2);
+            document.getElementById('s_zz').innerText = s_zz.toFixed(2);
+
+            document.getElementById('s_xy').innerText = s_xy.toFixed(2);
+            document.getElementById('s_yx').innerText = s_xy.toFixed(2);
+
+            document.getElementById('s_xz').innerText = s_xz.toFixed(2);
+            document.getElementById('s_zx').innerText = s_xz.toFixed(2);
+
+            document.getElementById('s_yz').innerText = s_yz.toFixed(2);
+            document.getElementById('s_zy').innerText = s_yz.toFixed(2);
+
+            document.getElementById('s_tr').innerText = (s_xx + s_yy + s_zz).toFixed(2);
+
+            // 3. Full linear transformation including all 6 components
+            // u_i = s_ij * x_j * scale
+            const scale = 0.03;
+            const positionAttribute = boxGeo.attributes.position;
+
+            for (let i = 0; i < originalPositions.count; i++) {
+                const x0 = originalPositions.getX(i);
+                const y0 = originalPositions.getY(i);
+                const z0 = originalPositions.getZ(i);
+
+                // Multiplying the deviator tensor s by the position vector [x0, y0, z0]^T
+                const dx = (s_xx * x0 + s_xy * y0 + s_xz * z0) * scale;
+                const dy = (s_xy * x0 + s_yy * y0 + s_yz * z0) * scale;
+                const dz = (s_xz * x0 + s_yz * y0 + s_zz * z0) * scale;
+
+                positionAttribute.setXYZ(i, x0 + dx, y0 + dy, z0 + dz);
+            }
+
+            positionAttribute.needsUpdate = true;
+            boxGeo.computeVertexNormals();
+        }
+
+        // Event Listeners
+        [sxxInput, syyInput, szzInput, sxyInput, sxzInput, syzInput].forEach(inp => {
+            inp.addEventListener('input', update);
+        });
+
+        // Three.js Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        update();
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+</body>
+</html>
